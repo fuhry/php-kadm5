@@ -54,6 +54,7 @@ PHP_FUNCTION(kadm5_chpass_principal);
 PHP_FUNCTION(kadm5_get_principals);
 PHP_FUNCTION(kadm5_get_principal);
 PHP_FUNCTION(kadm5_get_policies);
+PHP_FUNCTION(kadm5_get_policy);
 
 #endif	/* PHP_KADM5_H */
 

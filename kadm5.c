@@ -47,6 +47,7 @@
 #define OP_LAST_PW_CHANGE		"last_pwd_change"
 #define OP_ATTRIBUTES			"attributes"
 #define OP_MAX_LIFE				"max_life"
+#define OP_MAX_RENEWABLE_LIFE	"max_renewable_life"
 #define OP_MOD_TIME				"mod_time"
 #define OP_MOD_NAME				"mod_name"
 #define OP_KVNO					"kvno"
@@ -65,8 +66,11 @@
 #define OP_PW_MIN_LENGTH		"pw_min_length"
 #define OP_PW_MIN_CLASSES		"pw_min_classes"
 #define OP_PW_HISTORY_NUM		"pw_history_num"
+#define OP_PW_MAX_FAIL			"pw_max_fail"
+#define OP_PW_FAILCNT_INTERVAL	"pw_failcnt_interval"
+#define OP_PW_LOCKOUT_DURATION	"pw_lockout_duration"
 #define OP_REF_COUNT			"pw_refcnt"
-
+#define OP_ALLOWED_KEYSALTS     "allowed_keysalts"
 
 /* True global resources - no need for thread safety here */
 static int le_handle;
@@ -87,6 +91,7 @@ zend_function_entry kadm5_functions[] = {
 	PHP_FE(kadm5_get_principals, NULL)
 	PHP_FE(kadm5_get_principal, NULL)
 	PHP_FE(kadm5_get_policies, NULL)
+	PHP_FE(kadm5_get_policy, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in kadm5_functions[] */
 };
 /* }}} */
@@ -202,8 +207,20 @@ PHP_MINIT_FUNCTION(kadm5)
 	REGISTER_STRING_CONSTANT("KADM5_PW_HISTORY_NUM",
 							 OP_PW_HISTORY_NUM,
 							 CONST_PERSISTENT | CONST_CS);
+	REGISTER_STRING_CONSTANT("KADM5_PW_MAX_FAIL",
+							 OP_PW_MAX_FAIL,
+							 CONST_PERSISTENT | CONST_CS);
+	REGISTER_STRING_CONSTANT("KADM5_PW_FAILCNT_INTERVAL",
+							 OP_PW_FAILCNT_INTERVAL,
+							 CONST_PERSISTENT | CONST_CS);
+	REGISTER_STRING_CONSTANT("KADM5_PW_LOCKOUT_DURATION",
+							 OP_PW_LOCKOUT_DURATION,
+							 CONST_PERSISTENT | CONST_CS);
 	REGISTER_STRING_CONSTANT("KADM5_REF_COUNT",
 							 OP_REF_COUNT,
+							 CONST_PERSISTENT | CONST_CS);
+	REGISTER_STRING_CONSTANT("KADM5_ALLOWED_KEYSALTS",
+							 OP_ALLOWED_KEYSALTS,
 							 CONST_PERSISTENT | CONST_CS);
 
 	REGISTER_LONG_CONSTANT("KRB5_KDB_DISALLOW_POSTDATED",
@@ -489,7 +506,7 @@ kadm5_ret_t    kadm5_init_with_password(krb5_context context,
 								  KADM5_ADMIN_SERVICE,
 								  &params,
 								  KADM5_STRUCT_VERSION,
-								  KADM5_API_VERSION_2,
+								  KADM5_API_VERSION_4,
 								  db_args,
 								  &handle);
 
@@ -1203,6 +1220,53 @@ PHP_FUNCTION(kadm5_get_policies)
 	kadm5_free_name_list(handle, policies, count);
 }
 /* }}} */
+
+/* {{{ proto array kadm5_get_policy(resource handle, string policy)
+   Gets one policy from the Kerberos database. */
+PHP_FUNCTION(kadm5_get_policy)
+{
+	zval *link;
+	char *polstr;
+	int polstr_len;
+	kadm5_ret_t rc;
+	kadm5_policy_ent_rec policy;
+	void *handle;
+	
+	if (ZEND_NUM_ARGS() != 2) {
+		WRONG_PARAM_COUNT;
+	}
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs", &link, &polstr, &polstr_len) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	
+	array_init(return_value);
+	
+	rc = kadm5_get_policy(handle, polstr, &policy);
+	
+	if (rc) {
+		kadm5_error(rc);
+		RETURN_FALSE;
+	}
+	
+	add_assoc_long(return_value, OP_PW_MIN_LIFE, policy.pw_min_life);
+	add_assoc_long(return_value, OP_PW_MAX_LIFE, policy.pw_max_life);
+	add_assoc_long(return_value, OP_PW_MIN_LENGTH, policy.pw_min_length);
+	add_assoc_long(return_value, OP_PW_MIN_CLASSES, policy.pw_min_classes);
+	add_assoc_long(return_value, OP_PW_HISTORY_NUM, policy.pw_history_num);
+	add_assoc_long(return_value, OP_PW_MAX_FAIL, policy.pw_max_fail);
+	add_assoc_long(return_value, OP_PW_FAILCNT_INTERVAL, policy.pw_failcnt_interval);
+	add_assoc_long(return_value, OP_PW_LOCKOUT_DURATION, policy.pw_lockout_duration);
+	add_assoc_long(return_value, OP_ATTRIBUTES, policy.attributes);
+	add_assoc_long(return_value, OP_MAX_LIFE, policy.max_life);
+	add_assoc_long(return_value, OP_MAX_RENEWABLE_LIFE, policy.max_renewable_life);
+	
+	if (policy.allowed_keysalts != NULL) {
+		add_assoc_string(return_value, OP_ALLOWED_KEYSALTS, policy.allowed_keysalts, 1);
+	}
+}
 
 
 /*
