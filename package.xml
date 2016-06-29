@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!-- do not use the "Type" attribute here, that one is only for
+     generated package.xml files -->
+<package>
+
+  <name>kadm5</name>
+  <summary>Remote access to Kerberos Administration Servers</summary>
+  <description>
+      This package allows you to access Kerberos V administration servers.
+      You can create, modify, and delete Kerberos V principals and policies.
+  </description>
+
+  <maintainers>
+    <maintainer>
+      <user>hburbach</user>
+      <name>Holger Burbach</name>
+      <email>holger.burbach@gonicus.de</email>
+      <role>lead</role>
+    </maintainer>
+  </maintainers>
+
+  <license>LGPL</license>
+
+  <release>
+    <version>0.2.3</version>
+    <date>2003-05-22</date>
+    <state>alpha</state>
+    <notes>
+      - Release 0.2.3
+      - Code cleanup (CODING_STANDARDS)
+      - Throwing E_WARNINGs instead of E_ERRORs
+    </notes>
+  </release>
+
+  <filelist>
+    <dir role="src" name="/">
+      <file>CREDITS</file>
+      <file>EXPERIMENTAL</file>
+      <file>LICENSE</file>
+      <file>README</file>
+      <file>Makefile.in</file>
+      <file>config.m4</file>
+      <dir name="doc">
+        <file>kadm5.xml</file>
+      </dir>
+      <dir name="examples">
+        <file>kadm5-test.php</file>
+      </dir>
+      <file>php_kadm5.h</file>
+      <file>kadm5.c</file>
+      <file>kadm5.php</file>
+      <file>package.xml</file>
+      <file>php_kadm5.h</file>
+      <dir name="tests">
+        <file>001.phpt</file>
+      </dir>
+    </dir>
+  </filelist>
+
+  <changelog>
+
+    <release>
+      <version>0.2.3</version>
+      <date>2003-05-22</date>
+      <state>alpha</state>
+      <notes>
+      - Release 0.2.3
+      - Code cleanup (CODING_STANDARDS)
+      - Throwing E_WARNINGs instead of E_ERRORs
+      </notes>
+    </release>
+
+    <release>
+      <version>0.2.2</version>
+      <date>2003-05-15</date>
+      <state>alpha</state>
+      <notes>
+      - Release 0.2.2
+      - Added examples/kadm5-test.php
+      </notes>
+    </release>
+
+    <release>
+      <version>0.2.1</version>
+      <date>2003-05-14</date>
+      <state>alpha</state>
+      <notes>
+      - Release 0.2.1
+      - Corrected whitespace issues
+      - Cleanup in kadm5.c: Removal of confirm_kadm5_compiled and RINIT/RSHUTDOWN
+      </notes>
+    </release>
+
+    <release>
+      <version>0.2</version>
+      <date>2003-05-09</date>
+      <state>alpha</state>
+      <notes>
+      - Release 0.2
+      - Change License to LGPL
+      - Minor changes to config.m4
+      </notes>
+    </release>
+
+    <release>
+      <version>0.1</version>
+      <date>2003-05-08</date>
+      <state>alpha</state>
+      <notes>
+      - Release 0.1
+      - Initial version.
+      </notes>
+    </release>
+
+  </changelog>
+
+</package>

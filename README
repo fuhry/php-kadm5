@@ -1,0 +1,18 @@
+Well, the config.m4 file is still a mess. Unfortenately there is no
+libkadm55-dev debian package yet. So you have to have the krb5 sources
+at hand and change config.m4 accordingly.
+
+To successfully compile this extension under Debian you need the
+following Kerberos packages:
+
+libkrb5
+libkrb5-dev
+libkadm55
+
+The missing of libkadm55-dev has already been reported to the libkadm55
+maintainer: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=191616
+
+If there are any questions or problems, feel free to contact me:
+
+Holger Burbach <holger.burbach@gonicus.de>
+

@@ -1,0 +1,8 @@
+# $Id$
+
+LTLIBRARY_NAME        = libkadm5.la
+LTLIBRARY_SOURCES     = kadm5.c
+LTLIBRARY_SHARED_NAME = kadm5.la
+LTLIBRARY_SHARED_LIBADD  = $(KADM5_SHARED_LIBADD)
+
+include $(top_srcdir)/build/dynlib.mk
