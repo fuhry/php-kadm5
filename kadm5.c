@@ -32,6 +32,7 @@
 #include <kadm5/admin.h>
 #include <kadm5/kadm_err.h>
 
+#include "zend_types.h"
 #include "zend.h"
 #include "php.h"
 #include "php_ini.h"
@@ -71,6 +72,8 @@
 #define OP_PW_LOCKOUT_DURATION	"pw_lockout_duration"
 #define OP_REF_COUNT			"pw_refcnt"
 #define OP_ALLOWED_KEYSALTS     "allowed_keysalts"
+
+#define ht			0
 
 /* True global resources - no need for thread safety here */
 static int le_handle;
@@ -125,7 +128,7 @@ ZEND_GET_MODULE(kadm5)
 
 /* {{{ _close_kadm5_handle
  */
-static void _close_kadm5_handle(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+static void _close_kadm5_handle(zend_resource *rsrc TSRMLS_DC)
 {
 	void *handle = (void *)rsrc->ptr;
 
@@ -520,7 +523,7 @@ kadm5_ret_t    kadm5_init_with_password(krb5_context context,
 		RETURN_FALSE;
 	}
 
-	ZEND_REGISTER_RESOURCE(return_value, handle, le_handle);
+	RETURN_RES(zend_register_resource(handle, le_handle));
 }
 /* }}} */
 
@@ -529,16 +532,16 @@ kadm5_ret_t    kadm5_init_with_password(krb5_context context,
    Closes the connection to the admin server and releases all related resources. */
 PHP_FUNCTION(kadm5_destroy)
 {
-	zval **link;
+	zval *link;
 	void *handle;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &link ) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
-	zend_list_delete((*link)->value.lval);
+	zend_list_delete(Z_RES_P(link));
 	RETURN_TRUE;
 }
 /* }}} */
@@ -548,15 +551,15 @@ PHP_FUNCTION(kadm5_destroy)
    Flush all changes to the Kerberos database, leaving the connection to the Kerberos admin server open. */
 PHP_FUNCTION(kadm5_flush)
 {
-	zval **link;
+	zval *link;
 	void *handle;
 	kadm5_ret_t rc;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &link ) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	rc = kadm5_flush(handle);
 
@@ -626,7 +629,7 @@ PHP_FUNCTION(kadm5_create_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	/* initializing krb5 context */
 
@@ -667,74 +670,57 @@ PHP_FUNCTION(kadm5_create_principal)
 
 	/* parsing options */
 	if (options) {
-		HashTable *options_hash;
-		zval *key;
-		zval **data;
-		HashPosition pos;
-		char  *string_key;
-		uint  string_key_len;
-		ulong  num_key;
-
-		/* Allocate space for key */
-		MAKE_STD_ZVAL(key);
+		HashTable	*options_hash;
+		HashPosition	pos;
+		zend_string	*key;
+		zval		*data;
 
 		options_hash = HASH_OF(options);
 		zend_hash_internal_pointer_reset_ex(options_hash, &pos);
 
 		/* Iterate through hash */
-		while (zend_hash_get_current_data_ex(options_hash, (void**)&data, &pos) == SUCCESS) {
+		ZEND_HASH_FOREACH_STR_KEY_VAL(options_hash, key, data) {
 			/* Set up the key */
-			if (zend_hash_get_current_key_ex(options_hash, &string_key, &string_key_len, &num_key, 0, &pos) == HASH_KEY_IS_LONG) {
-				Z_TYPE_P(key) = IS_LONG;
-				Z_LVAL_P(key) = num_key;
-			} else {
-				Z_TYPE_P(key) = IS_STRING;
-				Z_STRVAL_P(key) = string_key;
-				Z_STRLEN_P(key) = string_key_len-1;
-			}
-
-			if (Z_TYPE_P(key) == IS_LONG) {
-				php_error(E_WARNING, "Key (%d) is not a string-value. Ignored.", Z_LVAL_P(key));
-			} else if (! strcmp(Z_STRVAL_P(key), OP_PRINC_EXPIRE_TIME)) {
-				convert_to_long(*data);
-				princ.princ_expire_time = Z_LVAL_PP(data);
+			if (! strcmp(ZSTR_VAL(key), OP_PRINC_EXPIRE_TIME)) {
+				convert_to_long(data);
+				princ.princ_expire_time = Z_LVAL_P(data);
 				mask |= KADM5_PRINC_EXPIRE_TIME;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_PW_EXPIRATION)) {
-				convert_to_long(*data);
-				princ.pw_expiration = Z_LVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_PW_EXPIRATION)) {
+				convert_to_long(data);
+				princ.pw_expiration = Z_LVAL_P(data);
 				mask |= KADM5_PW_EXPIRATION;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_MAX_LIFE)) {
-				convert_to_long(*data);
-				princ.max_life = Z_LVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_MAX_LIFE)) {
+				convert_to_long(data);
+				princ.max_life = Z_LVAL_P(data);
 				mask |= KADM5_MAX_LIFE;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_MAX_RLIFE)) {
-				convert_to_long(*data);
-				princ.max_renewable_life = Z_LVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_MAX_RLIFE)) {
+				convert_to_long(data);
+				princ.max_renewable_life = Z_LVAL_P(data);
 				mask |= KADM5_MAX_RLIFE;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_KVNO)) {
-				convert_to_long(*data);
-				princ.kvno = Z_LVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_KVNO)) {
+				convert_to_long(data);
+				princ.kvno = Z_LVAL_P(data);
 				mask |= KADM5_KVNO;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_POLICY)) {
-				convert_to_string(*data);
-				princ.policy = Z_STRVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_POLICY)) {
+				convert_to_string(data);
+				princ.policy = Z_STRVAL_P(data);
 				mask |= KADM5_POLICY;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_CLEARPOLICY)) {
+			} else if (! strcmp(ZSTR_VAL(key), OP_CLEARPOLICY)) {
 				princ.policy = NULL;
 				mask |= KADM5_POLICY_CLR;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_RANDKEY)) {
+			} else if (! strcmp(ZSTR_VAL(key), OP_RANDKEY)) {
 				randkey = 1;
-			} else if (! strcmp(Z_STRVAL_P(key), OP_ATTRIBUTES)) {
-				convert_to_long(*data);
-				princ.attributes = Z_LVAL_PP(data);
+			} else if (! strcmp(ZSTR_VAL(key), OP_ATTRIBUTES)) {
+				convert_to_long(data);
+				princ.attributes = Z_LVAL_P(data);
 				mask |= KADM5_ATTRIBUTES;
 			} else {
-				convert_to_string(*data);
-				php_error(E_WARNING, "Option (%s=%s) not implemented. Ignored.", Z_STRVAL_P(key), Z_STRVAL_PP(data));
+				convert_to_string(data);
+				php_error(E_WARNING, "Option (%s=%s) not implemented. Ignored.", ZSTR_VAL(key), Z_STRVAL_P(data));
 			}
 
 			zend_hash_move_forward_ex(options_hash, &pos);
-		}
+		} ZEND_HASH_FOREACH_END();
 	}
 
 	if (randkey) {
@@ -810,7 +796,7 @@ PHP_FUNCTION(kadm5_chpass_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	rc = krb5_init_context(&context);
 
@@ -864,7 +850,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	rc = krb5_init_context(&context);
 
@@ -931,7 +917,7 @@ PHP_FUNCTION(kadm5_modify_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	/* initializing krb5 context */
 
@@ -954,76 +940,58 @@ PHP_FUNCTION(kadm5_modify_principal)
 
 	/* parsing options */
 	if (options) {
-		HashTable *options_hash;
-		zval *key;
-		zval **data;
-		HashPosition pos;
-		char  *string_key;
-		uint  string_key_len;
-		ulong  num_key;
-
-		/* Allocate space for key */
-		MAKE_STD_ZVAL(key);
+		HashTable	*options_hash;
+		zend_string	*key;
+		zval		*data;
+		HashPosition	pos;
 
 		options_hash = HASH_OF(options);
 		zend_hash_internal_pointer_reset_ex(options_hash, &pos);
 
 		/* Iterate through hash */
-		while (zend_hash_get_current_data_ex(options_hash, (void**)&data, &pos) == SUCCESS) {
-			/* Set up the key */
-			if (zend_hash_get_current_key_ex(options_hash, &string_key, &string_key_len, &num_key, 0, &pos) == HASH_KEY_IS_LONG) {
-				Z_TYPE_P(key) = IS_LONG;
-				Z_LVAL_P(key) = num_key;
-			} else {
-				Z_TYPE_P(key) = IS_STRING;
-				Z_STRVAL_P(key) = string_key;
-				Z_STRLEN_P(key) = string_key_len-1;
-			}
-
-			if (Z_TYPE_P(key) == IS_LONG) {
-				php_error(E_WARNING, "Key (%d) is not a string-value. Ignored.", Z_LVAL_P(key));
-			} else if (!strcmp(Z_STRVAL_P(key), OP_PRINC_EXPIRE_TIME)) {
-				convert_to_long(*data);
-				princ.princ_expire_time = Z_LVAL_PP(data);
+		ZEND_HASH_FOREACH_STR_KEY_VAL(options_hash, key, data) {
+			if (!strcmp(ZSTR_VAL(key), OP_PRINC_EXPIRE_TIME)) {
+				convert_to_long(data);
+				princ.princ_expire_time = Z_LVAL_P(data);
 				mask |= KADM5_PRINC_EXPIRE_TIME;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_PW_EXPIRATION)) {
-				convert_to_long(*data);
-				princ.pw_expiration = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_PW_EXPIRATION)) {
+				convert_to_long(data);
+				princ.pw_expiration = Z_LVAL_P(data);
 				mask |= KADM5_PW_EXPIRATION;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_MAX_LIFE)) {
-				convert_to_long(*data);
-				princ.max_life = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_MAX_LIFE)) {
+				convert_to_long(data);
+				princ.max_life = Z_LVAL_P(data);
 				mask |= KADM5_MAX_LIFE;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_MAX_RLIFE)) {
-				convert_to_long(*data);
-				princ.max_renewable_life = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_MAX_RLIFE)) {
+				convert_to_long(data);
+				princ.max_renewable_life = Z_LVAL_P(data);
 				mask |= KADM5_MAX_RLIFE;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_KVNO)) {
-				convert_to_long(*data);
-				princ.kvno = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_KVNO)) {
+				convert_to_long(data);
+				princ.kvno = Z_LVAL_P(data);
 				mask |= KADM5_KVNO;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_POLICY)) {
-				convert_to_string(*data);
-				princ.policy = Z_STRVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_POLICY)) {
+				convert_to_string(data);
+				princ.policy = Z_STRVAL_P(data);
 				mask |= KADM5_POLICY;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_CLEARPOLICY)) {
+			} else if (!strcmp(ZSTR_VAL(key), OP_CLEARPOLICY)) {
 				princ.policy = NULL;
 				mask |= KADM5_POLICY_CLR;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_FAIL_AUTH_COUNT)) {
-				convert_to_long(*data);
-				princ.fail_auth_count = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_FAIL_AUTH_COUNT)) {
+				convert_to_long(data);
+				princ.fail_auth_count = Z_LVAL_P(data);
 				mask |= KADM5_FAIL_AUTH_COUNT;
-			} else if (!strcmp(Z_STRVAL_P(key), OP_ATTRIBUTES)) {
-				convert_to_long(*data);
-				princ.attributes = Z_LVAL_PP(data);
+			} else if (!strcmp(ZSTR_VAL(key), OP_ATTRIBUTES)) {
+				convert_to_long(data);
+				princ.attributes = Z_LVAL_P(data);
 				mask |= KADM5_ATTRIBUTES;
 			} else {
-				convert_to_string(*data);
-				php_error(E_WARNING, "Option (%s=%s) not implemented. Ignored.", Z_STRVAL_P(key), Z_STRVAL_PP(data));
+				convert_to_string(data);
+				php_error(E_WARNING, "Option (%s=%s) not implemented. Ignored.", ZSTR_VAL(key), Z_STRVAL_P(data));
 			}
 
 			zend_hash_move_forward_ex(options_hash, &pos);
-		}
+		} ZEND_HASH_FOREACH_END();
 	}
 
 	/* creating principal */
@@ -1066,7 +1034,7 @@ PHP_FUNCTION(kadm5_get_principals)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	array_init(return_value);
 
@@ -1078,7 +1046,7 @@ PHP_FUNCTION(kadm5_get_principals)
 	}
 
 	for (i=0; i<count; i++) {
-		add_next_index_string(return_value, princs[i], 1);
+		add_next_index_string(return_value, princs[i]);
 	}
 
 	kadm5_free_name_list(handle, princs, count);
@@ -1116,7 +1084,7 @@ PHP_FUNCTION(kadm5_get_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	array_init(return_value);
 
@@ -1159,19 +1127,19 @@ PHP_FUNCTION(kadm5_get_principal)
 		RETURN_FALSE;
 	}
 
-	add_assoc_string(return_value, OP_PRINCIPAL, principal, 1);
+	add_assoc_string(return_value, OP_PRINCIPAL, principal);
 	add_assoc_long(return_value, OP_PRINC_EXPIRE_TIME, ent.princ_expire_time);
 	add_assoc_long(return_value, OP_LAST_PW_CHANGE, ent.last_pwd_change);
 	add_assoc_long(return_value, OP_PW_EXPIRATION, ent.pw_expiration);
 	add_assoc_long(return_value, OP_MAX_LIFE, ent.max_life);
 	add_assoc_long(return_value, OP_MAX_RLIFE, ent.max_renewable_life);
-	add_assoc_string(return_value, OP_MOD_NAME, mod_name, 1);
+	add_assoc_string(return_value, OP_MOD_NAME, mod_name);
 	add_assoc_long(return_value, OP_KVNO, ent.kvno);
 	add_assoc_long(return_value, OP_MOD_TIME, ent.mod_date);
 	add_assoc_long(return_value, OP_LAST_SUCCESS, ent.last_success);
 	add_assoc_long(return_value, OP_LAST_FAILED, ent.last_failed);
 	add_assoc_long(return_value, OP_FAIL_AUTH_COUNT, ent.fail_auth_count);
-	add_assoc_string(return_value, OP_POLICY, ent.policy ? ent.policy : "", 1);
+	add_assoc_string(return_value, OP_POLICY, ent.policy ? ent.policy : "");
 	add_assoc_long(return_value, OP_ATTRIBUTES, ent.attributes);
 
 	free(principal);
@@ -1202,7 +1170,7 @@ PHP_FUNCTION(kadm5_get_policies)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 
 	array_init(return_value);
 
@@ -1214,7 +1182,7 @@ PHP_FUNCTION(kadm5_get_policies)
 	}
 
 	for (i=0; i<count; i++) {
-		add_next_index_string(return_value, policies[i], 1);
+		add_next_index_string(return_value, policies[i]);
 	}
 
 	kadm5_free_name_list(handle, policies, count);
@@ -1240,7 +1208,7 @@ PHP_FUNCTION(kadm5_get_policy)
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(handle, void *, &link, -1, HANDLE_ID, le_handle);
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
 	
 	array_init(return_value);
 	
@@ -1264,7 +1232,7 @@ PHP_FUNCTION(kadm5_get_policy)
 	add_assoc_long(return_value, OP_MAX_RENEWABLE_LIFE, policy.max_renewable_life);
 	
 	if (policy.allowed_keysalts != NULL) {
-		add_assoc_string(return_value, OP_ALLOWED_KEYSALTS, policy.allowed_keysalts, 1);
+		add_assoc_string(return_value, OP_ALLOWED_KEYSALTS, policy.allowed_keysalts);
 	}
 }
 
