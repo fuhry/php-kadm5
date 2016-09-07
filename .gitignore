@@ -32,3 +32,4 @@ config.status
 *.o
 libtool
 modules/
+config.h
