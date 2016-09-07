@@ -1,0 +1,36 @@
+This package was debianized by Dan Fuhry <dfuhry@datto.com> using dh-make-pecl
+on Wed, 07 Sep 2016 16:00:40 +0000.
+
+It was downloaded from http://pecl.php.net/package/kadm5
+
+Upstream Author(s):
+
+    Dan Fuhry
+
+Copyright:
+
+    Copyright (C) 2016 Dan Fuhry
+
+License:
+
+    LGPL
+
+The Debian packaging is copyright 2009, Dan Fuhry <dfuhry@datto.com> and
+is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
+
+    This package is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
+
+    This package is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this package; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+
+On Debian systems, the complete text of the GNU Lesser General
+Public License can be found in `/usr/share/common-licenses/LGPL'.
