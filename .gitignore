@@ -21,3 +21,14 @@ configure.in
 install-sh
 ltmain.sh
 run-tests.php
+.libs/
+Makefile
+Makefile.fragments
+Makefile.objects
+config.log
+config.status
+*.la
+*.lo
+*.o
+libtool
+modules/
