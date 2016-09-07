@@ -33,3 +33,12 @@ config.status
 libtool
 modules/
 config.h
+debian/Changelog
+debian/*.substvars
+build-stamp
+*-stamp-v*
+kadm5/.deps
+kadm5/autom4te.cache/
+kadm5/build/
+debian/php7.0-*
+tmp/
