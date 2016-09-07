@@ -73,7 +73,7 @@
 #define OP_REF_COUNT			"pw_refcnt"
 #define OP_ALLOWED_KEYSALTS     "allowed_keysalts"
 
-#define ht			0
+#define HT_IGNORED_VALUE	0
 
 /* True global resources - no need for thread safety here */
 static int le_handle;
@@ -468,24 +468,23 @@ static void kadm5_error( kadm5_ret_t error_code )
    Opens a conncetion to the KADM5 library and initializes any neccessary state information. */
 PHP_FUNCTION(kadm5_init_with_password)
 {
-	char *admin_server, *realm, *princstr, *password;
-	int admin_server_len, realm_len, princstr_len, password_len;
+	zend_string *admin_server, *realm, *princstr, *password;
 	kadm5_config_params params;
 	void *handle = NULL;
 	kadm5_ret_t rc;
 
 	memset((char *) &params, 0, sizeof(params));
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssss", 
-							  &admin_server, &admin_server_len,
-							  &realm, &realm_len, &princstr, &princstr_len, 
-							  &password, &password_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "SSSS", 
+							  &admin_server,
+							  &realm, &princstr,
+							  &password) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	params.realm = realm;
+	params.realm = ZSTR_VAL(realm);
 	params.mask |= KADM5_CONFIG_REALM;
-	params.admin_server = admin_server;
+	params.admin_server = ZSTR_VAL(admin_server);
 	params.mask |= KADM5_CONFIG_ADMIN_SERVER;
 
 /* prototype:
@@ -504,8 +503,8 @@ kadm5_ret_t    kadm5_init_with_password(krb5_context context,
 	krb5_init_context(&context);
 	char **db_args = NULL;
 	rc = kadm5_init_with_password(context,
-								  princstr,
-								  password,
+								  ZSTR_VAL(princstr),
+								  ZSTR_VAL(password),
 								  KADM5_ADMIN_SERVICE,
 								  &params,
 								  KADM5_STRUCT_VERSION,
@@ -535,7 +534,7 @@ PHP_FUNCTION(kadm5_destroy)
 	zval *link;
 	void *handle;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &link) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(HT_IGNORED_VALUE, 1, &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -555,7 +554,7 @@ PHP_FUNCTION(kadm5_flush)
 	void *handle;
 	kadm5_ret_t rc;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &link) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(HT_IGNORED_VALUE, 1, &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -577,21 +576,20 @@ PHP_FUNCTION(kadm5_flush)
    Creates a kerberos principal with the given parameters. */
 PHP_FUNCTION(kadm5_create_principal)
 {
-	int i;
-	zval *link;
-	zval *options;
-	void *handle;
-	kadm5_ret_t rc;
+	int		i;
+	zval		*link;
+	zval		*options;
+	void		*handle;
+	kadm5_ret_t	rc;
 	kadm5_principal_ent_rec princ;
 	kadm5_policy_ent_rec defpol;
-	krb5_context context;
-	int randkey = 0;
-	char dummybuf[256];
-	long mask = 0;
-	char *princstr;	  /* principal to create */
-	int princstr_len;
-	char *password;	  /* principal's password */
-	int password_len;
+	krb5_context	context;
+	int		randkey = 0;
+	char		dummybuf[256];
+	long		mask = 0;
+	zend_string	*princstr;	  /* principal to create */
+	zend_string	*password;	  /* principal's password */
+	char		*c_password;
 
 	options = NULL;
 
@@ -604,24 +602,24 @@ PHP_FUNCTION(kadm5_create_principal)
 	memset(&princ, 0, sizeof(princ));
 
 	if (ZEND_NUM_ARGS() == 2) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs", 
-								  &link, &princstr, &princstr_len) == FAILURE) {
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", 
+								  &link, &princstr) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 
 		randkey = 1; /* no password given, randkey assumed */
 	} else if (ZEND_NUM_ARGS() == 3) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zss", 
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", 
 								  &link,
-								  &princstr, &princstr_len, 
-								  &password, &password_len) == FAILURE) {
+								  &princstr,
+								  &password) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 	} else if (ZEND_NUM_ARGS() == 4) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zssa",
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSSa",
 								  &link,
-								  &princstr, &princstr_len,
-								  &password, &password_len,
+								  &princstr,
+								  &password,
 								  &options) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
@@ -642,10 +640,10 @@ PHP_FUNCTION(kadm5_create_principal)
 
 	/* converting principal string to structure */
 
-	rc = krb5_parse_name(context, princstr, &princ.principal);
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ.principal);
 
 	if (rc) {
-		php_error(E_WARNING, "Error parsing principal %s.", princstr);
+		php_error(E_WARNING, "Error parsing principal %s.", ZSTR_VAL(princstr));
 		krb5_free_context(context);
 		RETURN_FALSE;
 	}
@@ -658,12 +656,12 @@ PHP_FUNCTION(kadm5_create_principal)
 	 */
 	if ((! (mask & KADM5_POLICY)) && (! (mask & KADM5_POLICY_CLR))) {
 		if (! kadm5_get_policy(handle, "default", &defpol)) {
-			php_error(E_WARNING, "No policy specified for %s; assigning \"default\"", princstr);
+			php_error(E_WARNING, "No policy specified for %s; assigning \"default\"", ZSTR_VAL(princstr));
 			princ.policy = "default";
 			mask |= KADM5_POLICY;
 			(void) kadm5_free_policy_ent(handle, &defpol);
 		} else {
-			php_error(E_WARNING, "No policy specified for %s; defaulting to no policy", princstr);
+			php_error(E_WARNING, "No policy specified for %s; defaulting to no policy", ZSTR_VAL(princstr));
 		}
 	}
 	mask &= ~KADM5_POLICY_CLR;
@@ -726,13 +724,16 @@ PHP_FUNCTION(kadm5_create_principal)
 	if (randkey) {
 		princ.attributes |= KRB5_KDB_DISALLOW_ALL_TIX; /* set notix */
 		mask |= KADM5_ATTRIBUTES;
-		password = dummybuf;
+		c_password = dummybuf;
+	}
+	else {
+		c_password = ZSTR_VAL(password);
 	}
 
 	/* creating principal */
 
 	mask |= KADM5_PRINCIPAL;
-	rc = kadm5_create_principal(handle, &princ, mask, password);
+	rc = kadm5_create_principal(handle, &princ, mask, c_password);
 	if (rc) {
 		kadm5_error(rc);
 		krb5_free_principal(context, princ.principal);
@@ -775,10 +776,8 @@ PHP_FUNCTION(kadm5_chpass_principal)
 	int i;
 	krb5_principal princ;
 	char *principal;
-	char *princstr;
-	int princstr_len;
-	char *password;
-	int password_len;
+	zend_string *princstr;
+	zend_string *password;
 	zval *link;
 	void *handle;
 	krb5_context context;
@@ -791,8 +790,8 @@ PHP_FUNCTION(kadm5_chpass_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zss", &link,
-							 &princstr, &princstr_len, &password, &password_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", &link,
+							 &princstr, &password) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -805,7 +804,7 @@ PHP_FUNCTION(kadm5_chpass_principal)
 		RETURN_FALSE;
 	}
 
-	rc = krb5_parse_name(context, princstr, &princ);
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ);
 
 	if (rc) {
 		php_error(E_WARNING, "Error parsing principal.");
@@ -813,7 +812,7 @@ PHP_FUNCTION(kadm5_chpass_principal)
 		RETURN_FALSE;
 	}
 
-	rc = kadm5_chpass_principal(handle, princ, password);
+	rc = kadm5_chpass_principal(handle, princ, ZSTR_VAL(password));
 
 	if (rc) {
 		kadm5_error(rc);
@@ -833,7 +832,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 	int i;
 	krb5_principal princ;
 	char *principal;
-	char *princstr;
+	zend_string *princstr;
 	int princstr_len;
 	zval *link;
 	void *handle;
@@ -846,7 +845,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs", &link, &princstr, &princstr_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &princstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -859,7 +858,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 		RETURN_FALSE;
 	}
 
-	rc = krb5_parse_name(context, princstr, &princ);
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ);
 
 	if( rc ) {
 		php_error(E_WARNING, "Error parsing principal.");
@@ -895,8 +894,7 @@ PHP_FUNCTION(kadm5_modify_principal)
 	int randkey = 0;
 	char dummybuf[256];
 	long mask = 0;
-	char *princstr;	  /* principal to create */
-	int princstr_len;
+	zend_string *princstr;	  /* principal to create */
 
 	options = NULL;
 
@@ -909,8 +907,8 @@ PHP_FUNCTION(kadm5_modify_principal)
 	memset(&princ, 0, sizeof(princ));
 
 	if (ZEND_NUM_ARGS() == 3) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zsa", &link,
-								  &princstr, &princstr_len, &options) == FAILURE) {
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSa", &link,
+								  &princstr, &options) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 	} else {
@@ -930,10 +928,10 @@ PHP_FUNCTION(kadm5_modify_principal)
 
 	/* converting principal string to structure */
 
-	rc = krb5_parse_name(context, princstr, &princ.principal);
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ.principal);
 
 	if (rc) {
-		php_error(E_WARNING, "Error parsing principal %s.", princstr);
+		php_error(E_WARNING, "Error parsing principal %s.", ZSTR_VAL(princstr));
 		krb5_free_context(context);
 		RETURN_FALSE;
 	}
@@ -1061,8 +1059,7 @@ PHP_FUNCTION(kadm5_get_principal)
 	int i;
 	krb5_principal princ;
 	char *principal;
-	char *princstr;
-	int princstr_len;
+	zend_string *princstr;
 	char *mod_name;
 	int count;
 	zval *link;
@@ -1080,7 +1077,7 @@ PHP_FUNCTION(kadm5_get_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs", &link, &princstr, &princstr_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &princstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1095,7 +1092,7 @@ PHP_FUNCTION(kadm5_get_principal)
 		RETURN_FALSE;
 	}
 
-	rc = krb5_parse_name(context, princstr, &princ);
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ);
 
 	if (rc) {
 		php_error(E_WARNING, "Error parsing principal.");
@@ -1194,8 +1191,7 @@ PHP_FUNCTION(kadm5_get_policies)
 PHP_FUNCTION(kadm5_get_policy)
 {
 	zval *link;
-	char *polstr;
-	int polstr_len;
+	zend_string *polstr;
 	kadm5_ret_t rc;
 	kadm5_policy_ent_rec policy;
 	void *handle;
@@ -1204,7 +1200,7 @@ PHP_FUNCTION(kadm5_get_policy)
 		WRONG_PARAM_COUNT;
 	}
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs", &link, &polstr, &polstr_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &polstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1212,7 +1208,7 @@ PHP_FUNCTION(kadm5_get_policy)
 	
 	array_init(return_value);
 	
-	rc = kadm5_get_policy(handle, polstr, &policy);
+	rc = kadm5_get_policy(handle, ZSTR_VAL(polstr), &policy);
 	
 	if (rc) {
 		kadm5_error(rc);
