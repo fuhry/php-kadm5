@@ -12,9 +12,9 @@
 
   <maintainers>
     <maintainer>
-      <user>hburbach</user>
-      <name>Holger Burbach</name>
-      <email>holger.burbach@gonicus.de</email>
+      <user>dfuhry</user>
+      <name>Dan Fuhry</name>
+      <email>dan@fuhry.com</email>
       <role>lead</role>
     </maintainer>
   </maintainers>
@@ -22,13 +22,15 @@
   <license>LGPL</license>
 
   <release>
-    <version>0.2.3</version>
-    <date>2003-05-22</date>
-    <state>alpha</state>
+    <version>0.4.0</version>
+    <date>2016-09-07</date>
+    <state>beta</state>
     <notes>
-      - Release 0.2.3
-      - Code cleanup (CODING_STANDARDS)
-      - Throwing E_WARNINGs instead of E_ERRORs
+      - Release 0.4.0
+      - First release in over 13 years
+      - PHP 7.0 compatibility
+      - Kerberos 1.13 compatibility
+      - Added kadm5_get_policy() function
     </notes>
   </release>
 
@@ -58,6 +60,19 @@
   </filelist>
 
   <changelog>
+
+    <release>
+      <version>0.4.0</version>
+      <date>2016-09-07</date>
+      <state>beta</state>
+      <notes>
+        - Release 0.4.0
+        - First release in over 13 years
+        - PHP 7.0 compatibility
+        - Kerberos 1.13 compatibility
+        - Added kadm5_get_policy() function
+      </notes>
+    </release>
 
     <release>
       <version>0.2.3</version>
