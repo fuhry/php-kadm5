@@ -10,6 +10,12 @@ This is a PHP extension that exposes libkadmin functionality in PHP. It's extrem
 * **Heimdal and other alternative Kerberos implementations are not supported, since they do not use MIT's kadmin protocol.**
 * PHP 7. If you need PHP 5 support, please build the `php5` branch. Please note that this branch will **not** be receiving any future feature or security patches.
 
+## How do I build it?
+
+Debian users: just run `dpkg-buildpackage`.
+
+Everyone else: `cd kadm5 && phpize && ./configure && make && make install`
+
 ## Authors
 
 * Dan Fuhry <dan@fuhry.com>
