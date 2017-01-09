@@ -19,6 +19,6 @@ Everyone else: `cd kadm5 && phpize && ./configure && make && make install`
 ## Authors
 
 * Dan Fuhry <dan@fuhry.com>
-** Current maintainer: Kerberos 1.9 support, bugfixes, PHP7 support, kadm5_get_policy support
+ * Current maintainer: Kerberos 1.9 support, bugfixes, PHP7 support, kadm5_get_policy support
 * Holger Burbach <holger.burbach@gonicus.de>
-** Original author
+ * Original author
