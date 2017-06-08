@@ -2,13 +2,13 @@ Source: php-kadm5
 Section: web
 Priority: optional
 Maintainer: Dan Fuhry <dfuhry@datto.com>
-Build-Depends: debhelper (>= 7), po-debconf, xsltproc , php7.0-dev
+Build-Depends: debhelper (>= 7), po-debconf, xsltproc, php7.0-dev, php7.1-dev
 Standards-Version: 3.9.1
 
 Package: php7.0-kadm5
 Architecture: any
 Depends: ${shlibs:Depends}, ${php:Depends}, ${misc:Depends}
-Description: kadm5 module for PHP 5
+Description: kadm5 module for PHP 7.0
  Remote access to Kerberos Administration Servers
  .
  This package allows you to access Kerberos V administration servers.
@@ -16,3 +16,12 @@ Description: kadm5 module for PHP 5
  policies.
 
 
+Package: php7.1-kadm5
+Architecture: any
+Depends: ${shlibs:Depends}, ${php:Depends}, ${misc:Depends}
+Description: kadm5 module for PHP 7.1
+ Remote access to Kerberos Administration Servers
+ .
+ This package allows you to access Kerberos V administration servers.
+ You can create, modify, and delete Kerberos V principals and
+ policies.

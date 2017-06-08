@@ -27,9 +27,9 @@ PHPIZE=/usr/bin/phpize
 PHPCONFIG=/usr/bin/php-config
 EXT_DIR=$(shell $(PHPCONFIG)$* --extension-dir)
 SOURCE_DIR=$(shell ls -d $(PECL_PKG_REALNAME))
-BINARYTARGETS=binary-arch-v7.0 
-BUILDTARGETS=build-v7.0 
-CLEANTARGETS=clean-v7.0 
+BINARYTARGETS=binary-arch-v7.0 binary-arch-v7.1 
+BUILDTARGETS=build-v7.0 build-v7.1
+CLEANTARGETS=clean-v7.0 clean-v7.1
 PHP55CONFD=false
 
 # Sarge doesn't support --phpapi option (Bug #365667)
@@ -37,9 +37,10 @@ phpapiver4=$(shell /usr/bin/php-config4 --phpapi)
 #phpapiver4=$(/usr/bin/php-config4 --extension-dir | xargs basename)
 phpapiver5=$(shell /usr/bin/php-config5 --phpapi)
 phpapiver7.0=$(shell /usr/bin/php-config7.0 --phpapi)
+phpapiver7.1=$(shell /usr/bin/php-config7.1 --phpapi)
 
-configure-v4 configure-v5 configure-v7.0: configure-v%: configure-stamp-v%
-configure-stamp-v4 configure-stamp-v5 configure-stamp-v7.0: configure-stamp-v%:
+configure-v4 configure-v5 configure-v7.0 configure-v7.1: configure-v%: configure-stamp-v%
+configure-stamp-v4 configure-stamp-v5 configure-stamp-v7.0 configure-stamp-v7.1: configure-stamp-v%:
 	dh_testdir
 	# Add here commands to configure the package.
 	(cd $(SOURCE_DIR); \
@@ -50,14 +51,14 @@ configure-stamp-v4 configure-stamp-v5 configure-stamp-v7.0: configure-stamp-v%:
 
 build: $(BUILDTARGETS)
 
-build-v4 build-v5 build-v7.0: build-v%: build-stamp-v%
+build-v4 build-v5 build-v7.0 build-v7.1: build-v%: build-stamp-v%
 
 build-stamp:
 #	xsltproc --nonet --novalid debian/changelog.xsl package.xml > debian/Changelog
 	$(shell /usr/share/dh-make-php/phppkginfo . changelog > debian/Changelog)
 	touch build-stamp
 
-build-stamp-v4 build-stamp-v5 build-stamp-v7.0: build-stamp-v%: build-stamp configure-stamp-v%
+build-stamp-v4 build-stamp-v5 build-stamp-v7.0 build-stamp-v7.1: build-stamp-v%: build-stamp configure-stamp-v%
 	dh_testdir
 
 	# Add here commands to compile the package.
@@ -68,7 +69,7 @@ build-stamp-v4 build-stamp-v5 build-stamp-v7.0: build-stamp-v%: build-stamp conf
 clean: $(CLEANTARGETS)
 	dh_clean
 
-clean-v4 clean-v5 clean-v7.0: clean-v%:
+clean-v4 clean-v5 clean-v7.0 clean-v7.1: clean-v%:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp* configure-stamp*
@@ -79,7 +80,7 @@ clean-v4 clean-v5 clean-v7.0: clean-v%:
 	$(PHPIZE)$* --clean)
 	rm -rf tmp/modules$*
 
-install-v4 install-v5 install-v7.0: install-v%: build-v%
+install-v4 install-v5 install-v7.0 install-v7.1: install-v%: build-v%
 	dh_testdir
 	dh_testroot
 	# can't dh_clean here without specifically excluding the possibly existing installed dirs
@@ -128,13 +129,35 @@ install-v7.0: install-v%: build-v%
 		cp debian/$(PECL_PKG_NAME).ini debian/$(BIN_PACKAGE_NAME)/etc/php/$*/mods-available; \
 	fi
 
+install-v7.1: install-v%: build-v%
+	dh_testdir
+	dh_testroot
+	# can't dh_clean here without specifically excluding the possibly existing installed dirs
+	# for other version.
+	#dh_clean -k
+	dh_installdirs
+#	dh_pecl
+
+	# Add here commands to install the package into debian/$(PACKAGE_NAME).
+#	$(MAKE) INSTALL_ROOT=$(CURDIR)/debian/$(PACKAGE_NAME) install
+#	sh -c 'VERSION=`egrep "#define ZEND_MODULE_API_NO" \
+#		/usr/include/php4/Zend/zend_modules.h \
+#		| sed "s/#define ZEND_MODULE_API_NO //"`; \
+#		chmod 644 debian/$(PACKAGE_NAME)/usr/lib/php4/$$VERSION/*.so'
+	mkdir -p debian/$(BIN_PACKAGE_NAME)/$(EXT_DIR)
+	install -m 644 -o root -g root tmp/modules$*/$(PECL_PKG_NAME).so debian/$(BIN_PACKAGE_NAME)/$(EXT_DIR)/$(PECL_PKG_NAME).so
+	if [ -f "debian/$(PECL_PKG_NAME).ini" ]; then \
+		mkdir -p debian/$(BIN_PACKAGE_NAME)/etc/php/$*/mods-available; \
+		cp debian/$(PECL_PKG_NAME).ini debian/$(BIN_PACKAGE_NAME)/etc/php/$*/mods-available; \
+	fi
+
 # Build architecture-independent files here.
 binary-indep:
 # We have nothing to do by default.
 
 # Build architecture-dependent files here.
 
-binary-arch-v4 binary-arch-v5 binary-arch-v7.0: binary-arch-v%: install-v%
+binary-arch-v4 binary-arch-v5 binary-arch-v7.0 binary-arch-v7.1: binary-arch-v%: install-v%
 	echo "php:Depends=phpapi-$(phpapiver$*)" >> debian/$(BIN_PACKAGE_NAME).substvars
 
 binary-arch: $(BINARYTARGETS)
@@ -170,4 +193,4 @@ endif
 	dh_builddeb
 
 binary: binary-indep binary-arch
-.PHONY: build build-v4 build-v5 build-v7.0 clean clean-v4 clean-v5 clean-v7.0 binary-indep binary-arch binary-arch-v4 binary-arch-v5 binary-arch-v7.0 binary install-v4 install-v5 install-v7.0 configure-v4 configure-v5 configure-v7.0
+.PHONY: build build-v4 build-v5 build-v7.0 build-v7.1 clean clean-v4 clean-v5 clean-v7.0 clean-v7.1 binary-indep binary-arch binary-arch-v4 binary-arch-v5 binary-arch-v7.0 binary-arch-v7.1 binary install-v4 install-v5 install-v7.0 install-v7.1 configure-v4 configure-v5 configure-v7.0 configure-v7.1
