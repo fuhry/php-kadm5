@@ -35,6 +35,7 @@ modules/
 config.h
 debian/Changelog
 debian/*.substvars
+debian/*.debhelper.log
 build-stamp
 *-stamp-v*
 kadm5/.deps
