@@ -879,7 +879,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 /* }}} */
 
 
-/* {{{ proto int kadm5_delete_principal(resource handle, string principal, array options)
+/* {{{ proto int kadm5_modify_principal(resource handle, string principal, array options)
    Modifies a kerberos principal with the given parameters. */
 PHP_FUNCTION(kadm5_modify_principal)
 {
