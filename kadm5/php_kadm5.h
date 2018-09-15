@@ -51,6 +51,7 @@ PHP_FUNCTION(kadm5_create_principal);
 PHP_FUNCTION(kadm5_delete_principal);
 PHP_FUNCTION(kadm5_modify_principal);
 PHP_FUNCTION(kadm5_chpass_principal);
+PHP_FUNCTION(kadm5_rename_principal);
 PHP_FUNCTION(kadm5_get_principals);
 PHP_FUNCTION(kadm5_get_principal);
 PHP_FUNCTION(kadm5_get_policies);

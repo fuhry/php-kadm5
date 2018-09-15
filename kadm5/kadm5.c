@@ -91,6 +91,7 @@ zend_function_entry kadm5_functions[] = {
 	PHP_FE(kadm5_delete_principal, NULL)
 	PHP_FE(kadm5_modify_principal, NULL)
 	PHP_FE(kadm5_chpass_principal, NULL)
+	PHP_FE(kadm5_rename_principal, NULL)
 	PHP_FE(kadm5_get_principals, NULL)
 	PHP_FE(kadm5_get_principal, NULL)
 	PHP_FE(kadm5_get_policies, NULL)
@@ -879,7 +880,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 /* }}} */
 
 
-/* {{{ proto int kadm5_delete_principal(resource handle, string principal, array options)
+/* {{{ proto int kadm5_modify_principal(resource handle, string principal, array options)
    Modifies a kerberos principal with the given parameters. */
 PHP_FUNCTION(kadm5_modify_principal)
 {
@@ -1004,6 +1005,70 @@ PHP_FUNCTION(kadm5_modify_principal)
 	}
 
 	krb5_free_principal(context, princ.principal);
+	krb5_free_context(context);
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int kadm5_rename_principal(resource handle, string principal)
+   Renames a kerberos principal. */
+PHP_FUNCTION(kadm5_rename_principal)
+{
+	int i;
+	krb5_principal princ;
+	krb5_principal newprinc;
+	char *principal;
+	zend_string *princstr;
+	char *newprincipal;
+	zend_string *newprincstr;
+	zval *link;
+	void *handle;
+	krb5_context context;
+	kadm5_ret_t rc; /* return code */
+
+	memset(&princ, 0, sizeof(princ));
+	memset(&newprinc, 0, sizeof(newprinc));
+
+	if( ZEND_NUM_ARGS() != 3 ) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", &link, &princstr, &newprincstr) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
+
+	rc = krb5_init_context(&context);
+
+	if( rc ) {
+		php_error(E_WARNING, "Error while initializing krb5 library");
+		RETURN_FALSE;
+	}
+
+	rc = krb5_parse_name(context, ZSTR_VAL(princstr), &princ);
+
+	if( rc ) {
+		php_error(E_WARNING, "Error parsing old principal name.");
+		krb5_free_context(context);
+		RETURN_FALSE;
+	}
+	
+	rc = krb5_parse_name(context, ZSTR_VAL(newprincstr), &newprinc);
+
+	if( rc ) {
+		php_error(E_WARNING, "Error parsing new principal name.");
+		krb5_free_context(context);
+		RETURN_FALSE;
+	}
+
+	rc = kadm5_rename_principal(handle, princ, newprinc);
+
+	if (rc) {
+		kadm5_error(rc);
+		RETURN_FALSE;
+	}
+
 	krb5_free_context(context);
 	RETURN_TRUE;
 }
