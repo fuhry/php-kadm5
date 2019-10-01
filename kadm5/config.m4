@@ -1,66 +1,63 @@
-dnl $Id$
-dnl config.m4 for extension kadm5
-
-dnl Comments in this file start with the string 'dnl'.
-dnl Remove where necessary. This file will not work
-dnl without editing.
-
-dnl If your extension references something external, use with:
-
 PHP_ARG_WITH(kadm5, for kadm5 support,
 dnl Make sure that the comment is aligned:
 [  --with-kadm5             Include kadm5 support])
 
-dnl Otherwise use enable:
-
-dnl PHP_ARG_ENABLE(kadm5, whether to enable kadm5 support,
-dnl Make sure that the comment is aligned:
-dnl [  --enable-kadm5           Enable kadm5 support])
-
 if test "$PHP_KADM5" != "no"; then
-  dnl Write more examples of tests here...
+  AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
+  KRB5_REQUIRED=1.12.1
 
-  dnl # --with-kadm5 -> check with-path
-  SEARCH_PATH="/usr/local/include /usr/include /usr/src/krb5-1.2.4/src/include"
-  SEARCH_FOR="kadm5/admin.h"
-  if test -r $PHP_KADM5/; then # path given as parameter
-     KADM5_DIR=$PHP_KADM5
-  else # search default path list
-     AC_MSG_CHECKING(for kadm5 files in default path)
-     for i in $SEARCH_PATH ; do
-       if test -r $i/$SEARCH_FOR; then
-         KADM5_DIR=$i
-         AC_MSG_RESULT(found in $i)
-       fi
-     done
+  if test -x "$PKG_CONFIG" && $PKG_CONFIG kadm-client --exists ; then
+    AC_MSG_CHECKING(kadm-client version)
+    if $PKG_CONFIG kadm-client --atleast-version=$KRB5_REQUIRED ; then
+      KADMCLNT_INCLUDE=`$PKG_CONFIG kadm-client --cflags`
+      KADMCLNT_LIBRARY=`$PKG_CONFIG kadm-client --libs`
+      KADMCLNT_VERSION=`$PKG_CONFIG kadm-client --modversion`
+      AC_MSG_RESULT($KADMCLNT_VERSION)
+    else
+      AC_MSG_ERROR(version too old)
+    fi
+    PHP_EVAL_INCLINE($KADMCLNT_INCLUDE)
+    PHP_EVAL_LIBLINE($KADMCLNT_LIBRARY, KADM5_SHARED_LIBADD)
+
+    AC_MSG_CHECKING(kadm-server version)
+    if $PKG_CONFIG kadm-server --atleast-version=$KRB5_REQUIRED ; then
+      KADMSRV_INCLUDE=`$PKG_CONFIG kadm-server --cflags`
+      KADMSRV_LIBRARY=`$PKG_CONFIG kadm-server --libs`
+      KADMSRV_VERSION=`$PKG_CONFIG kadm-server --modversion`
+      AC_MSG_RESULT($KADMSRV_VERSION)
+    else
+      AC_MSG_ERROR(version too old)
+    fi
+    PHP_EVAL_INCLINE($KADMSRV_INCLUDE)
+    PHP_EVAL_LIBLINE($KADMSRV_LIBRARY, KADM5_SHARED_LIBADD)
+
+    AC_MSG_CHECKING(gssrpc version)
+    if $PKG_CONFIG gssrpc --atleast-version=$KRB5_REQUIRED ; then
+      GSSRPC_INCLUDE=`$PKG_CONFIG gssrpc --cflags`
+      GSSRPC_LIBRARY=`$PKG_CONFIG gssrpc --libs`
+      GSSRPC_VERSION=`$PKG_CONFIG gssrpc --modversion`
+      AC_MSG_RESULT($GSSRPC_VERSION)
+    else
+      AC_MSG_ERROR(version too old)
+    fi
+    PHP_EVAL_INCLINE($GSSRPC_INCLUDE)
+    PHP_EVAL_LIBLINE($GSSRPC_LIBRARY, KADM5_SHARED_LIBADD)
+
+    AC_MSG_CHECKING(krb5 version)
+    if $PKG_CONFIG krb5 --atleast-version=$KRB5_REQUIRED ; then
+      KRB5_INCLUDE=`$PKG_CONFIG krb5 --cflags`
+      KRB5_LIBRARY=`$PKG_CONFIG krb5 --libs`
+      KRB5_VERSION=`$PKG_CONFIG krb5 --modversion`
+      AC_MSG_RESULT($KRB5_VERSION)
+    else
+      AC_MSG_ERROR(version too old)
+    fi
+    PHP_EVAL_INCLINE($KRB5_INCLUDE)
+    PHP_EVAL_LIBLINE($KRB5_LIBRARY, KADM5_SHARED_LIBADD)
+
+    PHP_SUBST(KADM5_SHARED_LIBADD)
+    PHP_EXTENSION(kadm5, $ext_shared)
+  else
+    AC_MSG_ERROR(pkg-config not found)
   fi
-
-  if test -z "$KADM5_DIR"; then
-    AC_MSG_RESULT(not found)
-    AC_MSG_ERROR(Please reinstall the kadm5 distribution)
-  fi
-
-  # --with-kadm5 -> add include path
-  PHP_ADD_INCLUDE($KADM5_DIR)
-  PHP_ADD_INCLUDE($KADM5_DIR/krb5)
-  PHP_ADD_INCLUDE($KADM5_DIR/et)
-
-  # --with-kadm5 -> chech for lib and symbol presence
-  LIBNAME=kadm5srv # you may want to change this
-  LIBSYMBOL=kadm5 # you most likely want to change this
-  old_LIBS=$LIBS
-  LIBS="$LIBS -L/usr/lib -lm -ldl"
-  dnl AC_CHECK_LIB($LIBNAME, $LIBSYMBOL, [AC_DEFINE(HAVE_KADM5LIB,1,[ ])],
-  dnl [AC_MSG_ERROR(wrong kadm5 lib version or lib not found)])
-  LIBS=$old_LIBS
-
-  PHP_SUBST(KADM5_SHARED_LIBADD)
-  PHP_ADD_LIBRARY_WITH_PATH(kadm5clnt, /usr/lib, KADM5_SHARED_LIBADD)
-  dnl PHP_ADD_LIBRARY_WITH_PATH(kdb5, /usr/lib, KADM5_SHARED_LIBADD)
-  PHP_ADD_LIBRARY_WITH_PATH(gssrpc, /usr/lib, KADM5_SHARED_LIBADD)
-  PHP_ADD_LIBRARY_WITH_PATH(krb5, /usr/lib, KADM5_SHARED_LIBADD)
-  PHP_ADD_LIBRARY_WITH_PATH(k5crypto, /usr/lib, KADM5_SHARED_LIBADD)
-  dnl PHP_ADD_LIBRARY_WITH_PATH(dyn, /usr/lib, KADM5_SHARED_LIBADD)
-
-  PHP_EXTENSION(kadm5, $ext_shared)
 fi
