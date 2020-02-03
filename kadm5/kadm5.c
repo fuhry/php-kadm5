@@ -532,16 +532,20 @@ kadm5_ret_t    kadm5_init_with_password(krb5_context context,
    Closes the connection to the admin server and releases all related resources. */
 PHP_FUNCTION(kadm5_destroy)
 {
-	zval *link;
+	zval *args;
 	void *handle;
-
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(HT_IGNORED_VALUE, 1, &link) == FAILURE) {
+	
+	args = (zval *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval), 0);
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_array_ex(1, args) == FAILURE) {
+		efree(args);
 		WRONG_PARAM_COUNT;
 	}
+	
+	handle = (void *)zend_fetch_resource_ex(args, HANDLE_ID, le_handle);
 
-	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
-
-	zend_list_delete(Z_RES_P(link));
+	zend_list_delete(Z_RES_P(args));
+	efree(args);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -551,23 +555,28 @@ PHP_FUNCTION(kadm5_destroy)
    Flush all changes to the Kerberos database, leaving the connection to the Kerberos admin server open. */
 PHP_FUNCTION(kadm5_flush)
 {
-	zval *link;
+	zval *args;
 	void *handle;
 	kadm5_ret_t rc;
-
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(HT_IGNORED_VALUE, 1, &link) == FAILURE) {
+	
+	args = (zval *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval), 0);
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_array_ex(1, args) == FAILURE) {
+		efree(args);
 		WRONG_PARAM_COUNT;
 	}
-
-	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
+	
+	handle = (void *)zend_fetch_resource_ex(args, HANDLE_ID, le_handle);
 
 	rc = kadm5_flush(handle);
 
 	if (rc) {
 		kadm5_error(rc);
+		efree(args);
 		RETURN_FALSE;
 	}
 
+	efree(args);
 	RETURN_TRUE;
 }
 /* }}} */

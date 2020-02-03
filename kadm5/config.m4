@@ -55,8 +55,8 @@ if test "$PHP_KADM5" != "no"; then
     PHP_EVAL_INCLINE($KRB5_INCLUDE)
     PHP_EVAL_LIBLINE($KRB5_LIBRARY, KADM5_SHARED_LIBADD)
 
+    PHP_NEW_EXTENSION(kadm5, kadm5.c, $ext_shared)
     PHP_SUBST(KADM5_SHARED_LIBADD)
-    PHP_EXTENSION(kadm5, $ext_shared)
   else
     AC_MSG_ERROR(pkg-config not found)
   fi
