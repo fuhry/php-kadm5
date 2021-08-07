@@ -32,7 +32,11 @@
 #include <kadm5/admin.h>
 #include <kadm5/kadm_err.h>
 
+/* workaround the silly issue of kadm_err and zend_types both defining
+	SUCCESS in enums */
+#define SUCCESS ZT_SUCCESS
 #include "zend_types.h"
+#undef SUCCESS
 #include "zend.h"
 #include "php.h"
 #include "php_ini.h"
@@ -78,24 +82,86 @@
 /* True global resources - no need for thread safety here */
 static int le_handle;
 
-
 /* {{{ kadm5_functions[]
  *
  * Every user visible function must have an entry in kadm5_functions[].
  */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_init_with_password, 0, 0, 4)
+	ZEND_ARG_INFO(0, admin_server)
+	ZEND_ARG_INFO(0, realm)
+	ZEND_ARG_INFO(0, princstr)
+	ZEND_ARG_INFO(0, password)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_destroy, 0, 0, 1)
+	ZEND_ARG_INFO(0, kadm5_handle)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_flush, 0, 0, 1)
+	ZEND_ARG_INFO(0, kadm5_handle)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_create_principal, 0, 0, 2)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+	ZEND_ARG_INFO(0, password)
+	ZEND_ARG_INFO(0, options)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_delete_principal, 0, 0, 2)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_modify_principal, 0, 0, 3)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+	ZEND_ARG_INFO(0, options)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_chpass_principal, 0, 0, 3)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+	ZEND_ARG_INFO(0, new_password)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_rename_principal, 0, 0, 3)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+	ZEND_ARG_INFO(0, new_principal_name)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_get_principals, 0, 0, 1)
+	ZEND_ARG_INFO(0, kadm5_handle)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_get_principal, 0, 0, 2)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, princstr)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_get_policies, 0, 0, 1)
+	ZEND_ARG_INFO(0, kadm5_handle)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_kadm5_get_policy, 0, 0, 2)
+	ZEND_ARG_INFO(0, kadm5_handle)
+	ZEND_ARG_INFO(0, policy_name)
+ZEND_END_ARG_INFO()
+
 zend_function_entry kadm5_functions[] = {
-	PHP_FE(kadm5_init_with_password, NULL)
-	PHP_FE(kadm5_destroy, NULL)
-	PHP_FE(kadm5_flush, NULL)
-	PHP_FE(kadm5_create_principal, NULL)
-	PHP_FE(kadm5_delete_principal, NULL)
-	PHP_FE(kadm5_modify_principal, NULL)
-	PHP_FE(kadm5_chpass_principal, NULL)
-	PHP_FE(kadm5_rename_principal, NULL)
-	PHP_FE(kadm5_get_principals, NULL)
-	PHP_FE(kadm5_get_principal, NULL)
-	PHP_FE(kadm5_get_policies, NULL)
-	PHP_FE(kadm5_get_policy, NULL)
+	PHP_FE(kadm5_init_with_password, arginfo_kadm5_init_with_password)
+	PHP_FE(kadm5_destroy, arginfo_kadm5_destroy)
+	PHP_FE(kadm5_flush, arginfo_kadm5_flush)
+	PHP_FE(kadm5_create_principal, arginfo_kadm5_create_principal)
+	PHP_FE(kadm5_delete_principal, arginfo_kadm5_delete_principal)
+	PHP_FE(kadm5_modify_principal, arginfo_kadm5_modify_principal)
+	PHP_FE(kadm5_chpass_principal, arginfo_kadm5_chpass_principal)
+	PHP_FE(kadm5_rename_principal, arginfo_kadm5_rename_principal)
+	PHP_FE(kadm5_get_principals, arginfo_kadm5_get_principals)
+	PHP_FE(kadm5_get_principal, arginfo_kadm5_get_principal)
+	PHP_FE(kadm5_get_policies, arginfo_kadm5_get_policies)
+	PHP_FE(kadm5_get_policy, arginfo_kadm5_get_policy)
 	{NULL, NULL, NULL}	/* Must be the last line in kadm5_functions[] */
 };
 /* }}} */
@@ -129,7 +195,7 @@ ZEND_GET_MODULE(kadm5)
 
 /* {{{ _close_kadm5_handle
  */
-static void _close_kadm5_handle(zend_resource *rsrc TSRMLS_DC)
+static void _close_kadm5_handle(zend_resource *rsrc)
 {
 	void *handle = (void *)rsrc->ptr;
 
@@ -142,58 +208,58 @@ static void _close_kadm5_handle(zend_resource *rsrc TSRMLS_DC)
  */
 PHP_MINIT_FUNCTION(kadm5)
 {
-	REGISTER_STRING_CONSTANT("KADM5_PRINCIPAL", 
-							 OP_PRINCIPAL, 
+	REGISTER_STRING_CONSTANT("KADM5_PRINCIPAL",
+							 OP_PRINCIPAL,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_PRINC_EXPIRE_TIME", 
-							 OP_PRINC_EXPIRE_TIME, 
+	REGISTER_STRING_CONSTANT("KADM5_PRINC_EXPIRE_TIME",
+							 OP_PRINC_EXPIRE_TIME,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_PW_EXPIRATION", 
-							 OP_PW_EXPIRATION, 
+	REGISTER_STRING_CONSTANT("KADM5_PW_EXPIRATION",
+							 OP_PW_EXPIRATION,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_LAST_PW_CHANGE", 
+	REGISTER_STRING_CONSTANT("KADM5_LAST_PW_CHANGE",
 							 OP_LAST_PW_CHANGE,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_ATTRIBUTES", 
-							 OP_ATTRIBUTES, 
+	REGISTER_STRING_CONSTANT("KADM5_ATTRIBUTES",
+							 OP_ATTRIBUTES,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_MAX_LIFE", 
-							 OP_MAX_LIFE, 
+	REGISTER_STRING_CONSTANT("KADM5_MAX_LIFE",
+							 OP_MAX_LIFE,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_MOD_TIME", 
-							 OP_MOD_TIME, 
+	REGISTER_STRING_CONSTANT("KADM5_MOD_TIME",
+							 OP_MOD_TIME,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_MOD_NAME", 
-							 OP_MOD_NAME, 
+	REGISTER_STRING_CONSTANT("KADM5_MOD_NAME",
+							 OP_MOD_NAME,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_KVNO", 
-							 OP_KVNO, 
+	REGISTER_STRING_CONSTANT("KADM5_KVNO",
+							 OP_KVNO,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_MKVNO", 
-							 OP_MKVNO, 
+	REGISTER_STRING_CONSTANT("KADM5_MKVNO",
+							 OP_MKVNO,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_AUX_ATTRIBUTES", 
-							 OP_AUX_ATTRIBUTES, 
+	REGISTER_STRING_CONSTANT("KADM5_AUX_ATTRIBUTES",
+							 OP_AUX_ATTRIBUTES,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_POLICY", 
-							 OP_POLICY, 
+	REGISTER_STRING_CONSTANT("KADM5_POLICY",
+							 OP_POLICY,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_CLEARPOLICY", 
-							 OP_CLEARPOLICY, 
+	REGISTER_STRING_CONSTANT("KADM5_CLEARPOLICY",
+							 OP_CLEARPOLICY,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_RANDKEY", 
-							 OP_RANDKEY, 
+	REGISTER_STRING_CONSTANT("KADM5_RANDKEY",
+							 OP_RANDKEY,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_MAX_RLIFE", 
-							 OP_MAX_RLIFE, 
+	REGISTER_STRING_CONSTANT("KADM5_MAX_RLIFE",
+							 OP_MAX_RLIFE,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_LAST_SUCCES", 
-							 OP_LAST_SUCCESS, 
+	REGISTER_STRING_CONSTANT("KADM5_LAST_SUCCES",
+							 OP_LAST_SUCCESS,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_LAST_FAILED", 
-							 OP_LAST_FAILED, 
+	REGISTER_STRING_CONSTANT("KADM5_LAST_FAILED",
+							 OP_LAST_FAILED,
 							 CONST_PERSISTENT | CONST_CS);
-	REGISTER_STRING_CONSTANT("KADM5_FAIL_AUTH_COUNT", 
+	REGISTER_STRING_CONSTANT("KADM5_FAIL_AUTH_COUNT",
 							 OP_FAIL_AUTH_COUNT,
 							 CONST_PERSISTENT | CONST_CS);
 	REGISTER_STRING_CONSTANT("KADM5_PW_MAX_LIFE",
@@ -467,6 +533,7 @@ static void kadm5_error( kadm5_ret_t error_code )
 
 /* {{{ proto resource kadm5_init_with_password(string admin_server, string realm, string principal, string password)
    Opens a conncetion to the KADM5 library and initializes any neccessary state information. */
+
 PHP_FUNCTION(kadm5_init_with_password)
 {
 	zend_string *admin_server, *realm, *princstr, *password;
@@ -476,7 +543,7 @@ PHP_FUNCTION(kadm5_init_with_password)
 
 	memset((char *) &params, 0, sizeof(params));
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "SSSS", 
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "SSSS",
 							  &admin_server,
 							  &realm, &princstr,
 							  &password) == FAILURE) {
@@ -534,14 +601,14 @@ PHP_FUNCTION(kadm5_destroy)
 {
 	zval *args;
 	void *handle;
-	
+
 	args = (zval *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval), 0);
-	
+
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_array_ex(1, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
-	
+
 	handle = (void *)zend_fetch_resource_ex(args, HANDLE_ID, le_handle);
 
 	zend_list_delete(Z_RES_P(args));
@@ -558,14 +625,14 @@ PHP_FUNCTION(kadm5_flush)
 	zval *args;
 	void *handle;
 	kadm5_ret_t rc;
-	
+
 	args = (zval *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval), 0);
-	
+
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_array_ex(1, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
-	
+
 	handle = (void *)zend_fetch_resource_ex(args, HANDLE_ID, le_handle);
 
 	rc = kadm5_flush(handle);
@@ -612,21 +679,21 @@ PHP_FUNCTION(kadm5_create_principal)
 	memset(&princ, 0, sizeof(princ));
 
 	if (ZEND_NUM_ARGS() == 2) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", 
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "zS",
 								  &link, &princstr) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 
 		randkey = 1; /* no password given, randkey assumed */
 	} else if (ZEND_NUM_ARGS() == 3) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", 
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "zSS",
 								  &link,
 								  &princstr,
 								  &password) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 	} else if (ZEND_NUM_ARGS() == 4) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSSa",
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "zSSa",
 								  &link,
 								  &princstr,
 								  &password,
@@ -800,7 +867,7 @@ PHP_FUNCTION(kadm5_chpass_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", &link,
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zSS", &link,
 							 &princstr, &password) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -855,7 +922,7 @@ PHP_FUNCTION(kadm5_delete_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &princstr) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS(), "zS", &link, &princstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -917,7 +984,7 @@ PHP_FUNCTION(kadm5_modify_principal)
 	memset(&princ, 0, sizeof(princ));
 
 	if (ZEND_NUM_ARGS() == 3) {
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSa", &link,
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "zSa", &link,
 								  &princstr, &options) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
@@ -1042,7 +1109,7 @@ PHP_FUNCTION(kadm5_rename_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zSS", &link, &princstr, &newprincstr) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS(), "zSS", &link, &princstr, &newprincstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1062,7 +1129,7 @@ PHP_FUNCTION(kadm5_rename_principal)
 		krb5_free_context(context);
 		RETURN_FALSE;
 	}
-	
+
 	rc = krb5_parse_name(context, ZSTR_VAL(newprincstr), &newprinc);
 
 	if( rc ) {
@@ -1102,7 +1169,7 @@ PHP_FUNCTION(kadm5_get_principals)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &link) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1151,7 +1218,7 @@ PHP_FUNCTION(kadm5_get_principal)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &princstr) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zS", &link, &princstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1237,7 +1304,7 @@ PHP_FUNCTION(kadm5_get_policies)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &link) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1269,26 +1336,26 @@ PHP_FUNCTION(kadm5_get_policy)
 	kadm5_ret_t rc;
 	kadm5_policy_ent_rec policy;
 	void *handle;
-	
+
 	if (ZEND_NUM_ARGS() != 2) {
 		WRONG_PARAM_COUNT;
 	}
-	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zS", &link, &polstr) == FAILURE) {
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zS", &link, &polstr) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	handle = (void *)zend_fetch_resource_ex(link, HANDLE_ID, le_handle);
-	
+
 	array_init(return_value);
-	
+
 	rc = kadm5_get_policy(handle, ZSTR_VAL(polstr), &policy);
-	
+
 	if (rc) {
 		kadm5_error(rc);
 		RETURN_FALSE;
 	}
-	
+
 	add_assoc_long(return_value, OP_PW_MIN_LIFE, policy.pw_min_life);
 	add_assoc_long(return_value, OP_PW_MAX_LIFE, policy.pw_max_life);
 	add_assoc_long(return_value, OP_PW_MIN_LENGTH, policy.pw_min_length);
@@ -1300,7 +1367,7 @@ PHP_FUNCTION(kadm5_get_policy)
 	add_assoc_long(return_value, OP_ATTRIBUTES, policy.attributes);
 	add_assoc_long(return_value, OP_MAX_LIFE, policy.max_life);
 	add_assoc_long(return_value, OP_MAX_RENEWABLE_LIFE, policy.max_renewable_life);
-	
+
 	if (policy.allowed_keysalts != NULL) {
 		add_assoc_string(return_value, OP_ALLOWED_KEYSALTS, policy.allowed_keysalts);
 	}
